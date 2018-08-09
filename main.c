@@ -4,6 +4,7 @@
 #include "inc/hw_memmap.h"
 #include "driverlib/debug.h"
 #include "driverlib/gpio.h"
+#include "driverlib/timer.h"
 #include "driverlib/sysctl.h"
 
 void toggleE(void);
@@ -15,6 +16,8 @@ void smallDelay(void);
 uint8_t pollKeypad(void);
 void printKey(uint8_t key);
 void printChar(char symbol);
+void myTimerISR(void);
+
 /**
  * main.c
  */
@@ -25,9 +28,13 @@ int main(void)
     SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOB);
     SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOD);
     SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOE);
+    SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOF);
 
+    while(!SysCtlPeripheralReady(SYSCTL_PERIPH_GPIOA));
     while(!SysCtlPeripheralReady(SYSCTL_PERIPH_GPIOB));
     while(!SysCtlPeripheralReady(SYSCTL_PERIPH_GPIOD));
+    while(!SysCtlPeripheralReady(SYSCTL_PERIPH_GPIOE));
+    while(!SysCtlPeripheralReady(SYSCTL_PERIPH_GPIOF));
 
     //D0-7 on PB0-7
     GPIOPinTypeGPIOOutput(GPIO_PORTB_BASE, 0xff);
@@ -37,6 +44,8 @@ int main(void)
     GPIOPinTypeGPIOOutput(GPIO_PORTD_BASE, GPIO_PIN_1);
     //RS on D0
     GPIOPinTypeGPIOOutput(GPIO_PORTD_BASE, GPIO_PIN_0);
+    //LED on PF4
+    GPIOPinTypeGPIOOutput(GPIO_PORTF_BASE, GPIO_PIN_4);
     //keypad outputs
     GPIOPinTypeGPIOOutput(GPIO_PORTE_BASE, (GPIO_PIN_1 | GPIO_PIN_2 | GPIO_PIN_3 |  GPIO_PIN_4));
     //keypad inputs
@@ -44,6 +53,15 @@ int main(void)
     //put pull downs on keypad inputs
     GPIOPadConfigSet(GPIO_PORTA_BASE, (GPIO_PIN_4 | GPIO_PIN_5 | GPIO_PIN_6 | GPIO_PIN_7), GPIO_STRENGTH_2MA, GPIO_PIN_TYPE_STD_WPD);
 
+    //set up a timer
+    SysCtlPeripheralEnable(SYSCTL_PERIPH_TIMER0);
+    while(!SysCtlPeripheralReady(SYSCTL_PERIPH_TIMER0));
+    TimerConfigure(TIMER0_BASE, TIMER_CFG_PERIODIC);
+    TimerLoadSet(TIMER0_BASE, TIMER_A, 8000000);
+
+    TimerIntRegister(TIMER0_BASE, TIMER_A, myTimerISR);
+    TimerIntEnable(TIMER0_BASE, TIMER_TIMA_TIMEOUT);
+    TimerEnable(TIMER0_BASE, TIMER_A);
 
     //set all outputs 0
     GPIOPinWrite(GPIO_PORTB_BASE, 0xff, 0);
@@ -69,6 +87,17 @@ int main(void)
     }
 
 	return 0;
+}
+void myTimerISR(void){
+
+    uint32_t intStatus = TimerIntStatus(TIMER0_BASE, false);
+
+    uint8_t pinState = GPIOPinRead(GPIO_PORTF_BASE, GPIO_PIN_4);
+    pinState ^= 0xff;
+    GPIOPinWrite(GPIO_PORTF_BASE, GPIO_PIN_4, pinState);
+
+    TimerIntClear(TIMER0_BASE, intStatus);
+
 }
 
 uint8_t pollKeypad(void){
