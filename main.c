@@ -7,11 +7,8 @@
 #include "driverlib/timer.h"
 #include "driverlib/sysctl.h"
 
+void screenCommand(uint8_t cmd);
 void toggleE(void);
-void returnHome(void);
-void printMsg(void);
-void clearScreen(void);
-void blinkCursor(void);
 void smallDelay(void);
 uint8_t pollKeypad(void);
 void printKey(uint8_t key);
@@ -60,25 +57,41 @@ int main(void)
     //set up a timer
     SysCtlPeripheralEnable(SYSCTL_PERIPH_TIMER0);
     while(!SysCtlPeripheralReady(SYSCTL_PERIPH_TIMER0));
+
+
     TimerConfigure(TIMER0_BASE, TIMER_CFG_PERIODIC);
-    //25 million ticks creates a ISR period of 0.5s
+    //80 thousand ticks creates a ISR period of 16ms
+    //the screen takes >15ms to wake.
+    TimerLoadSet(TIMER0_BASE, TIMER_A, 80000000);
+    uint32_t intStatus = TimerIntStatus(TIMER0_BASE, false);
+    TimerIntClear(TIMER0_BASE, intStatus);
+    TimerEnable(TIMER0_BASE, TIMER_A);
+
+    //wait for the first flag
+    while(TimerIntStatus(TIMER0_BASE, false) == 0);
+    intStatus = TimerIntStatus(TIMER0_BASE, false);
+    TimerIntClear(TIMER0_BASE, intStatus);
+
+    //set a slower period of 0.5s
     TimerLoadSet(TIMER0_BASE, TIMER_A, 25000000);
 
     TimerIntRegister(TIMER0_BASE, TIMER_A, myTimerISR);
     TimerIntEnable(TIMER0_BASE, TIMER_TIMA_TIMEOUT);
-    TimerEnable(TIMER0_BASE, TIMER_A);
 
     //set all outputs 0
     GPIOPinWrite(GPIO_PORTB_BASE, 0xff, 0);
     GPIOPinWrite(GPIO_PORTD_BASE, 0xff, 0);
     GPIOPinWrite(GPIO_PORTE_BASE, 0xff, 0);
 
-    blinkCursor();
+    screenCommand(0x30); //8-bit mode
     smallDelay();
-    returnHome();
+    screenCommand(0x38); //8-bit mode, 2 lines
     smallDelay();
-    clearScreen();
+    screenCommand(0x01); //clear display
     smallDelay();
+    screenCommand(0x0f); //blink cursor
+    smallDelay();
+    screenCommand(0x02); //return home
     //printMsg();
     uint8_t keyPress = 0;
     uint8_t keyPressOld = 0;
@@ -93,6 +106,17 @@ int main(void)
 
 	return 0;
 }
+
+void screenCommand(uint8_t cmd){
+    //R/W and RS are low
+    GPIOPinWrite(GPIO_PORTD_BASE, GPIO_PIN_0, 0);
+    GPIOPinWrite(GPIO_PORTD_BASE, GPIO_PIN_1, 0);
+
+    GPIOPinWrite(GPIO_PORTB_BASE, 0xff, cmd);
+    toggleE();
+    GPIOPinWrite(GPIO_PORTB_BASE, 0xff, 0);
+}
+
 void myTimerISR(void){
 
     uint32_t intStatus = TimerIntStatus(TIMER0_BASE, false);
@@ -104,6 +128,7 @@ void myTimerISR(void){
     TimerIntClear(TIMER0_BASE, intStatus);
 
 }
+
 
 uint8_t pollKeypad(void){
     uint8_t i, j;
@@ -128,9 +153,6 @@ uint8_t pollKeypad(void){
     else
         return 0;
 }
-
-
-
 
 void printKey(uint8_t key){
     switch(key){
@@ -196,15 +218,6 @@ void printChar(char symbol){
     smallDelay();
 }
 
-void clearScreen(void){
-    //R/W and RS are low
-    GPIOPinWrite(GPIO_PORTD_BASE, GPIO_PIN_0, 0);
-    GPIOPinWrite(GPIO_PORTD_BASE, GPIO_PIN_1, 0);
-    GPIOPinWrite(GPIO_PORTB_BASE, 0xff, 0x01);
-    toggleE();
-    GPIOPinWrite(GPIO_PORTB_BASE, 0xff, 0);
-}
-
 void printMsg(void){
     GPIOPinWrite(GPIO_PORTD_BASE, GPIO_PIN_0, GPIO_PIN_0);
     GPIOPinWrite(GPIO_PORTB_BASE, 0xff, 'h');
@@ -232,20 +245,6 @@ void printMsg(void){
     GPIOPinWrite(GPIO_PORTD_BASE, GPIO_PIN_0, 0);
 }
 
-void returnHome(void){
-    GPIOPinWrite(GPIO_PORTB_BASE, 0xff, 0x02);
-    toggleE();
-    GPIOPinWrite(GPIO_PORTB_BASE, 0xff, 0x0);
-}
-
-void blinkCursor(void){
-    GPIOPinWrite(GPIO_PORTB_BASE, GPIO_PIN_3, GPIO_PIN_3);
-    GPIOPinWrite(GPIO_PORTB_BASE, GPIO_PIN_2, GPIO_PIN_2);
-    GPIOPinWrite(GPIO_PORTB_BASE, GPIO_PIN_1, GPIO_PIN_1);
-    GPIOPinWrite(GPIO_PORTB_BASE, GPIO_PIN_0, GPIO_PIN_0);
-    toggleE();
-    GPIOPinWrite(GPIO_PORTB_BASE, 0xff, 0);
-}
 
 void toggleE(void){
     GPIOPinWrite(GPIO_PORTD_BASE, GPIO_PIN_2, GPIO_PIN_2);
@@ -259,7 +258,7 @@ void smallDelay(void){
 
     volatile uint32_t ui32Loop;
 
-    for(ui32Loop = 0; ui32Loop < 2000; ui32Loop++)
+    for(ui32Loop = 0; ui32Loop < 20000; ui32Loop++)
     {
     }
 }
