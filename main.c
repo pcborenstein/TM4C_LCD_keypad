@@ -23,6 +23,10 @@ void myTimerISR(void);
  */
 int main(void)
 {
+    //
+    // Setup the system clock to run at 50 Mhz from PLL with crystal reference
+    // from the datasheet: "When using the PLL, the VCO frequency of 400 MHz is predivided by 2 before the divisor is applied."
+    SysCtlClockSet(SYSCTL_SYSDIV_4 | SYSCTL_USE_PLL | SYSCTL_OSC_MAIN | SYSCTL_XTAL_16MHZ);
 
     SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOA);
     SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOB);
@@ -57,7 +61,8 @@ int main(void)
     SysCtlPeripheralEnable(SYSCTL_PERIPH_TIMER0);
     while(!SysCtlPeripheralReady(SYSCTL_PERIPH_TIMER0));
     TimerConfigure(TIMER0_BASE, TIMER_CFG_PERIODIC);
-    TimerLoadSet(TIMER0_BASE, TIMER_A, 8000000);
+    //25 million ticks creates a ISR period of 0.5s
+    TimerLoadSet(TIMER0_BASE, TIMER_A, 25000000);
 
     TimerIntRegister(TIMER0_BASE, TIMER_A, myTimerISR);
     TimerIntEnable(TIMER0_BASE, TIMER_TIMA_TIMEOUT);
