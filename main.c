@@ -16,6 +16,7 @@ void printKey(uint8_t key);
 void printChar(char symbol);
 void myTimerISR(void);
 void printMsg(char * msg);
+void setFrequency(uint16_t frq);
 
 
 #define KEY_PAD_BUTTONS 16
@@ -93,23 +94,23 @@ int main(void)
     smallDelay();
     screenCommand(0x01); //clear display
     smallDelay();
-    screenCommand(0x0e); //blink cursor
+    screenCommand(0x0f); //blink cursor
     smallDelay();
     screenCommand(0x02); //return home
     smallDelay();
-    printMsg("ENTER FREQUENCY:");
+    printMsg("ENTER FREQUENCY: ___");
     screenCommand(0xC0); //move to second line
     smallDelay();
-    printMsg("    001Hz");
+    printMsg("CURRENT: 001Hz");
     //move to input
-    screenCommand(0xC4);
+    screenCommand(0x80 | 0x11);
     smallDelay();
     uint8_t keyPress = 0;
     uint8_t keyPressOld = 0;
     uint16_t frq = 0;
     uint8_t digit = 1;
     char keyChar;
-    uint8_t index;
+    char keyStr[4];
     while(1){
         keyPress = pollKeypad();
         //make sure we get a real value
@@ -119,17 +120,27 @@ int main(void)
             keyPressOld = keyPress;
             //only print digits
             if(keyPress != 0){
-                index = keyPress - 1;
-                keyChar = keyToCharArray[index];
+                keyChar = keyToCharArray[keyPress-1];
                 if((keyChar >= '0') && (keyChar <= '9')){
-                    frq += digit * (keyChar - '0');
+                    if(digit == 3)
+                        frq += (keyChar - '0');
+                    if(digit == 2)
+                        frq += 10 * (keyChar - '0');
+                    if(digit == 1)
+                        frq += 100 * (keyChar - '0');
+                    keyStr[digit - 1] = keyChar;
                     printChar(keyChar);
                     digit++;
                     if(digit > 3){
-                        //setFrequency(frq);
-                        digit = 1;
+                        setFrequency(frq);
+                        screenCommand(0x80 | 0x49);
+                        printMsg(keyStr);
                         //move to input
-                        screenCommand(0xC4);
+                        screenCommand(0x80 | 0x11);
+                        printMsg("___");
+                        screenCommand(0x80 | 0x11);
+                        digit = 1;
+                        frq = 0;
                     }
                 }
             }
@@ -224,4 +235,11 @@ void smallDelay(void){
     for(ui32Loop = 0; ui32Loop < 20000; ui32Loop++)
     {
     }
+}
+
+
+void setFrequency(uint16_t frq){
+    uint64_t ticks;
+    ticks = (uint64_t) 25000000 / frq;
+    TimerLoadSet(TIMER0_BASE, TIMER_A, ticks);
 }
