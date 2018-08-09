@@ -98,12 +98,12 @@ int main(void)
     smallDelay();
     screenCommand(0x02); //return home
     smallDelay();
-    printMsg("ENTER FREQUENCY: ___");
+    printMsg("ENTER FREQUENCY:__Hz");
     screenCommand(0xC0); //move to second line
     smallDelay();
-    printMsg("CURRENT: 001Hz");
+    printMsg("CURRENT: 01Hz");
     //move to input
-    screenCommand(0x80 | 0x11);
+    screenCommand(0x80 | 0x10);
     smallDelay();
     uint8_t keyPress = 0;
     uint8_t keyPressOld = 0;
@@ -122,23 +122,21 @@ int main(void)
             if(keyPress != 0){
                 keyChar = keyToCharArray[keyPress-1];
                 if((keyChar >= '0') && (keyChar <= '9')){
-                    if(digit == 3)
-                        frq += (keyChar - '0');
                     if(digit == 2)
-                        frq += 10 * (keyChar - '0');
+                        frq += (keyChar - '0');
                     if(digit == 1)
-                        frq += 100 * (keyChar - '0');
+                        frq += 10 * (keyChar - '0');
                     keyStr[digit - 1] = keyChar;
                     printChar(keyChar);
                     digit++;
-                    if(digit > 3){
+                    if(digit > 2){
                         setFrequency(frq);
                         screenCommand(0x80 | 0x49);
                         printMsg(keyStr);
                         //move to input
-                        screenCommand(0x80 | 0x11);
-                        printMsg("___");
-                        screenCommand(0x80 | 0x11);
+                        screenCommand(0x80 | 0x10);
+                        printMsg("__");
+                        screenCommand(0x80 | 0x10);
                         digit = 1;
                         frq = 0;
                     }
