@@ -1,6 +1,7 @@
 
 #include <stdint.h>
 #include <stdbool.h>
+#include <string.h>
 #include "inc/hw_memmap.h"
 #include "driverlib/debug.h"
 #include "driverlib/gpio.h"
@@ -14,6 +15,7 @@ uint8_t pollKeypad(void);
 void printKey(uint8_t key);
 void printChar(char symbol);
 void myTimerISR(void);
+void printMsg(char * msg);
 
 /**
  * main.c
@@ -83,16 +85,20 @@ int main(void)
     GPIOPinWrite(GPIO_PORTD_BASE, 0xff, 0);
     GPIOPinWrite(GPIO_PORTE_BASE, 0xff, 0);
 
-    screenCommand(0x30); //8-bit mode
-    smallDelay();
     screenCommand(0x38); //8-bit mode, 2 lines
     smallDelay();
     screenCommand(0x01); //clear display
     smallDelay();
-    screenCommand(0x0f); //blink cursor
+    screenCommand(0x0e); //blink cursor
     smallDelay();
     screenCommand(0x02); //return home
-    //printMsg();
+    smallDelay();
+    printMsg("ENTER FREQUENCY:");
+    screenCommand(0xC0); //move to second line
+    smallDelay();
+    printMsg("    001Hz");
+    screenCommand(0xC4); //move to second line
+    smallDelay();
     uint8_t keyPress = 0;
     uint8_t keyPressOld = 0;
     while(1){
@@ -218,31 +224,11 @@ void printChar(char symbol){
     smallDelay();
 }
 
-void printMsg(void){
-    GPIOPinWrite(GPIO_PORTD_BASE, GPIO_PIN_0, GPIO_PIN_0);
-    GPIOPinWrite(GPIO_PORTB_BASE, 0xff, 'h');
-    toggleE();
-    smallDelay();
-    GPIOPinWrite(GPIO_PORTB_BASE, 0xff, 'e');
-    toggleE();
-    GPIOPinWrite(GPIO_PORTB_BASE, 0xff, 'l');
-    toggleE();
-    GPIOPinWrite(GPIO_PORTB_BASE, 0xff, 'l');
-    toggleE();
-    GPIOPinWrite(GPIO_PORTB_BASE, 0xff, 'o');
-    toggleE();
-    GPIOPinWrite(GPIO_PORTB_BASE, 0xff, ' ');
-    toggleE();
-    GPIOPinWrite(GPIO_PORTB_BASE, 0xff, 'a');
-    toggleE();
-    GPIOPinWrite(GPIO_PORTB_BASE, 0xff, 'b');
-    toggleE();
-    GPIOPinWrite(GPIO_PORTB_BASE, 0xff, 'c');
-    toggleE();
-    GPIOPinWrite(GPIO_PORTB_BASE, 0xff, 'd');
-    toggleE();
-    GPIOPinWrite(GPIO_PORTB_BASE, 0xff, 0);
-    GPIOPinWrite(GPIO_PORTD_BASE, GPIO_PIN_0, 0);
+void printMsg(char * msg){
+    int i, j;
+    i = strlen(msg);
+    for(j = 0;j < i; j++)
+        printChar(msg[j]);
 }
 
 
