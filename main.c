@@ -17,6 +17,10 @@ void printChar(char symbol);
 void myTimerISR(void);
 void printMsg(char * msg);
 
+
+#define KEY_PAD_BUTTONS 16
+static char keyToCharArray[KEY_PAD_BUTTONS] = {'1', '4', '7', '*', '2', '5', '8', '0', '3', '6', '9', '#', 'A', 'B', 'C', 'D'};
+
 /**
  * main.c
  */
@@ -64,7 +68,7 @@ int main(void)
     TimerConfigure(TIMER0_BASE, TIMER_CFG_PERIODIC);
     //80 thousand ticks creates a ISR period of 16ms
     //the screen takes >15ms to wake.
-    TimerLoadSet(TIMER0_BASE, TIMER_A, 80000000);
+    TimerLoadSet(TIMER0_BASE, TIMER_A, 80000);
     uint32_t intStatus = TimerIntStatus(TIMER0_BASE, false);
     TimerIntClear(TIMER0_BASE, intStatus);
     TimerEnable(TIMER0_BASE, TIMER_A);
@@ -97,16 +101,39 @@ int main(void)
     screenCommand(0xC0); //move to second line
     smallDelay();
     printMsg("    001Hz");
-    screenCommand(0xC4); //move to second line
+    //move to input
+    screenCommand(0xC4);
     smallDelay();
     uint8_t keyPress = 0;
     uint8_t keyPressOld = 0;
+    uint16_t frq = 0;
+    uint8_t digit = 1;
+    char keyChar;
+    uint8_t index;
     while(1){
         keyPress = pollKeypad();
+        //make sure we get a real value
+        if(keyPress > KEY_PAD_BUTTONS)
+            continue;
         if(keyPress != keyPressOld){
             keyPressOld = keyPress;
-            if(keyPress != 0)
-                printKey(keyPress);
+            //only print digits
+            if(keyPress != 0){
+                index = keyPress - 1;
+                keyChar = keyToCharArray[index];
+                if((keyChar >= '0') && (keyChar <= '9')){
+                    frq += digit * (keyChar - '0');
+                    printChar(keyChar);
+                    digit++;
+                    if(digit > 3){
+                        //setFrequency(frq);
+                        digit = 1;
+                        //move to input
+                        screenCommand(0xC4);
+                    }
+                }
+            }
+            smallDelay();
         }
     }
 
@@ -161,59 +188,9 @@ uint8_t pollKeypad(void){
 }
 
 void printKey(uint8_t key){
-    switch(key){
-    case 1:
-        printChar('1');
-        break;
-    case 2:
-        printChar('4');
-        break;
-    case 3:
-        printChar('7');
-        break;
-    case 4:
-        printChar('*');
-        break;
-    case 5:
-        printChar('2');
-        break;
-    case 6:
-        printChar('5');
-        break;
-    case 7:
-        printChar('8');
-        break;
-    case 8:
-        printChar('0');
-        break;
-    case 9:
-        printChar('3');
-        break;
-    case 10:
-        printChar('6');
-        break;
-    case 11:
-        printChar('9');
-        break;
-    case 12:
-        printChar('#');
-        break;
-    case 13:
-        printChar('A');
-        break;
-    case 14:
-        printChar('B');
-        break;
-    case 15:
-        printChar('C');
-        break;
-    case 16:
-        printChar('D');
-        break;
-    default:
-        //shouldn't reach here
-        break;
-    }
+    uint8_t index = key - 1;
+    if(index < KEY_PAD_BUTTONS)
+        printChar(keyToCharArray[index]);
 }
 
 void printChar(char symbol){
