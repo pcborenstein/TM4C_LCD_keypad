@@ -28,7 +28,13 @@
 		<link>
 			<name>driverlib.lib</name>
 			<type>1</type>
-			<locationURI>PARENT-2-PROJECT_LOC/ti/tivaware_c_series_2_1_4_178/driverlib/ccs/Debug/driverlib.lib</locationURI>
+			<locationURI>PARENT-2-ORIGINAL_PROJECT_ROOT/ti/tivaware_c_series_2_1_4_178/driverlib/ccs/Debug/driverlib.lib</locationURI>
 		</link>
 	</linkedResources>
+	<variableList>
+		<variable>
+			<name>ORIGINAL_PROJECT_ROOT</name>
+			<value>file:/home/peter/workspace_v11/TM4C_LCD_keypad</value>
+		</variable>
+	</variableList>
 </projectDescription>

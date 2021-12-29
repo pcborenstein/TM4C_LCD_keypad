@@ -12,4 +12,5 @@
 	<createSlaveProjects value=""/>
 	<templateProperties value="id=com.ti.common.project.core.emptyProjectWithMainTemplate"/>
 	<filesToOpen value="main.c"/>
+	<origin value="/home/peter/workspace_v11/TM4C_LCD_keypad"/>
 </projectOptions>
