@@ -8,6 +8,8 @@
 #include "driverlib/timer.h"
 #include "driverlib/sysctl.h"
 
+#include "keypad.h"
+
 void screenCommand(uint8_t cmd);
 void toggleE(void);
 void smallDelay(void);
@@ -18,9 +20,6 @@ void myTimerISR(void);
 void printMsg(char * msg);
 void setFrequency(uint16_t frq);
 
-
-#define KEY_PAD_BUTTONS 16
-static char keyToCharArray[KEY_PAD_BUTTONS] = {'1', '4', '7', '*', '2', '5', '8', '0', '3', '6', '9', '#', 'A', 'B', 'C', 'D'};
 
 /**
  * main.c
@@ -54,12 +53,8 @@ int main(void)
     GPIOPinTypeGPIOOutput(GPIO_PORTD_BASE, GPIO_PIN_0);
     //LED on PF4
     GPIOPinTypeGPIOOutput(GPIO_PORTF_BASE, GPIO_PIN_4);
-    //keypad outputs
-    GPIOPinTypeGPIOOutput(GPIO_PORTE_BASE, (GPIO_PIN_1 | GPIO_PIN_2 | GPIO_PIN_3 |  GPIO_PIN_4));
-    //keypad inputs
-    GPIOPinTypeGPIOInput(GPIO_PORTA_BASE, (GPIO_PIN_4 | GPIO_PIN_5 | GPIO_PIN_6 | GPIO_PIN_7));
-    //put pull downs on keypad inputs
-    GPIOPadConfigSet(GPIO_PORTA_BASE, (GPIO_PIN_4 | GPIO_PIN_5 | GPIO_PIN_6 | GPIO_PIN_7), GPIO_STRENGTH_2MA, GPIO_PIN_TYPE_STD_WPD);
+
+    keypadInit();
 
     //set up a timer
     SysCtlPeripheralEnable(SYSCTL_PERIPH_TIMER0);
@@ -88,7 +83,6 @@ int main(void)
     //set all outputs 0
     GPIOPinWrite(GPIO_PORTB_BASE, 0xff, 0);
     GPIOPinWrite(GPIO_PORTD_BASE, 0xff, 0);
-    GPIOPinWrite(GPIO_PORTE_BASE, 0xff, 0);
 
     screenCommand(0x38); //8-bit mode, 2 lines
     smallDelay();
@@ -171,30 +165,6 @@ void myTimerISR(void){
 
 }
 
-
-uint8_t pollKeypad(void){
-    uint8_t i, j;
-    uint8_t key = 0;
-    uint8_t keyFound = 0;
-    for(i = 1; i < 5; i++){
-        GPIOPinWrite(GPIO_PORTE_BASE, (GPIO_PIN_1 | GPIO_PIN_2 | GPIO_PIN_3 |  GPIO_PIN_4), (1 << i));
-        for(j = 7; j > 3; j--){
-            if(keyFound == 0)
-                key++;
-            if(GPIOPinRead(GPIO_PORTA_BASE, (1 << j)) != 0){
-                //two keys pressed will not return accurate results
-                if(keyFound == 1)
-                    return 0;
-                keyFound = 1;
-            }
-        }
-    }
-    GPIOPinWrite(GPIO_PORTE_BASE, (GPIO_PIN_1 | GPIO_PIN_2 | GPIO_PIN_3 |  GPIO_PIN_4), 0);
-    if(keyFound == 1)
-        return key;
-    else
-        return 0;
-}
 
 void printKey(uint8_t key){
     uint8_t index = key - 1;
