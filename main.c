@@ -12,13 +12,19 @@
 
 void screenCommand(uint8_t cmd);
 void toggleE(void);
-void smallDelay(void);
+void delay100us(void);
 uint8_t pollKeypad(void);
 void printKey(uint8_t key);
 void printChar(char symbol);
 void myTimerISR(void);
 void printMsg(char * msg);
 void setFrequency(uint16_t frq);
+void setFourBitMode(void);
+
+
+#define LCD_E_PIN   GPIO_PIN_2
+#define LCD_RW_PIN  GPIO_PIN_1
+#define LCD_RS_PIN  GPIO_PIN_0
 
 
 /**
@@ -44,13 +50,13 @@ int main(void)
     while(!SysCtlPeripheralReady(SYSCTL_PERIPH_GPIOF));
 
     //D0-7 on PB0-7
-    GPIOPinTypeGPIOOutput(GPIO_PORTB_BASE, 0xff);
+    GPIOPinTypeGPIOOutput(GPIO_PORTB_BASE, 0xf0);
     //E on D2
-    GPIOPinTypeGPIOOutput(GPIO_PORTD_BASE, GPIO_PIN_2);
+    GPIOPinTypeGPIOOutput(GPIO_PORTD_BASE, LCD_E_PIN);
     //R/W on D1
-    GPIOPinTypeGPIOOutput(GPIO_PORTD_BASE, GPIO_PIN_1);
+    GPIOPinTypeGPIOOutput(GPIO_PORTD_BASE, LCD_RW_PIN);
     //RS on D0
-    GPIOPinTypeGPIOOutput(GPIO_PORTD_BASE, GPIO_PIN_0);
+    GPIOPinTypeGPIOOutput(GPIO_PORTD_BASE, LCD_RS_PIN);
     //LED on PF4
     GPIOPinTypeGPIOOutput(GPIO_PORTF_BASE, GPIO_PIN_4);
 
@@ -84,21 +90,29 @@ int main(void)
     GPIOPinWrite(GPIO_PORTB_BASE, 0xff, 0);
     GPIOPinWrite(GPIO_PORTD_BASE, 0xff, 0);
 
-    screenCommand(0x38); //8-bit mode, 2 lines
-    smallDelay();
-    screenCommand(0x01); //clear display
-    smallDelay();
+    //wait 40ms
+    volatile int wait;
+    for(wait = 0; wait< 400; wait++){
+        delay100us();
+    }
+    setFourBitMode();
+    screenCommand(0x28);
+    screenCommand(0x01); //clear display returns home every other on error, erases F and moves cursor to colin
+    //wait 2ms
+    for(wait = 0; wait< 20; wait++){
+        delay100us();
+    }
     screenCommand(0x0f); //blink cursor
-    smallDelay();
     screenCommand(0x02); //return home
-    smallDelay();
+    //wait 2ms
+    for(wait = 0; wait< 20; wait++){
+        delay100us();
+    }
     printMsg("ENTER FREQUENCY:__Hz");
     screenCommand(0xC0); //move to second line
-    smallDelay();
     printMsg("CURRENT: 01Hz");
     //move to input
     screenCommand(0x80 | 0x10);
-    smallDelay();
     uint8_t keyPress = 0;
     uint8_t keyPressOld = 0;
     uint16_t frq = 0;
@@ -136,7 +150,10 @@ int main(void)
                     }
                 }
             }
-            smallDelay();
+            //wait 10ms
+            for(wait = 0; wait< 100; wait++){
+                delay100us();
+            }
         }
     }
 
@@ -144,13 +161,73 @@ int main(void)
 }
 
 void screenCommand(uint8_t cmd){
-    //R/W and RS are low
-    GPIOPinWrite(GPIO_PORTD_BASE, GPIO_PIN_0, 0);
-    GPIOPinWrite(GPIO_PORTD_BASE, GPIO_PIN_1, 0);
+    uint8_t lowerFourBits = (cmd << 4) & 0xf0;
+    cmd &= 0xf0;
 
-    GPIOPinWrite(GPIO_PORTB_BASE, 0xff, cmd);
+    //R/W and RS are low
+    GPIOPinWrite(GPIO_PORTD_BASE, LCD_RS_PIN, 0);
+    GPIOPinWrite(GPIO_PORTD_BASE, LCD_RW_PIN, 0);
+
+    GPIOPinWrite(GPIO_PORTB_BASE, 0xf0, cmd);
     toggleE();
+    delay100us();
+    GPIOPinWrite(GPIO_PORTB_BASE, 0xf0, lowerFourBits);
+    toggleE();
+    delay100us();
     GPIOPinWrite(GPIO_PORTB_BASE, 0xff, 0);
+}
+
+void setFourBitMode(void){
+    //R/W and RS are low
+    GPIOPinWrite(GPIO_PORTD_BASE, LCD_RS_PIN, 0);
+    GPIOPinWrite(GPIO_PORTD_BASE, LCD_RW_PIN, 0);
+
+    //The data sheet has a flow chat
+    //shows setting 8 bit mode
+    //then setting 4 bit mode twice
+
+    //DL high = 8-bit low = 4-bit
+    //F must be low when N is 2 lines
+
+    //example code shows 5ms delays between setting 8-bit mode
+    //8-bit
+    volatile int wait;
+    GPIOPinWrite(GPIO_PORTB_BASE, 0xf0, 0x30);
+    toggleE();
+    //wait 5ms
+    for(wait = 0; wait< 20; wait++){
+        delay100us();
+    }
+    toggleE();
+    //wait 5ms
+    for(wait = 0; wait< 20; wait++){
+        delay100us();
+    }
+    toggleE();
+    //wait 5ms
+    for(wait = 0; wait< 20; wait++){
+        delay100us();
+    }
+
+
+    //4-bit
+    GPIOPinWrite(GPIO_PORTB_BASE, 0xf0, 0x20);
+    toggleE();
+    delay100us();
+    /*
+    GPIOPinWrite(GPIO_PORTB_BASE, 0xf0, 0x80);
+    toggleE();
+    delay100us();
+    //4-bit x2
+    GPIOPinWrite(GPIO_PORTB_BASE, 0xf0, 0x20);
+    toggleE();
+    delay100us();
+    GPIOPinWrite(GPIO_PORTB_BASE, 0xf0, 0x80);
+    toggleE();
+    delay100us();
+
+    GPIOPinWrite(GPIO_PORTB_BASE, 0xff, 0);
+    */
 }
 
 void myTimerISR(void){
@@ -172,13 +249,32 @@ void printKey(uint8_t key){
         printChar(keyToCharArray[index]);
 }
 
+
 void printChar(char symbol){
-    GPIOPinWrite(GPIO_PORTD_BASE, GPIO_PIN_0, GPIO_PIN_0);
-    GPIOPinWrite(GPIO_PORTD_BASE, GPIO_PIN_1, 0);
+    uint8_t lowerFourBits = (symbol << 4) & 0xf0;
+    symbol &= 0xf0;
+
+    GPIOPinWrite(GPIO_PORTD_BASE, LCD_RS_PIN, LCD_RS_PIN);
+    GPIOPinWrite(GPIO_PORTD_BASE, LCD_RW_PIN, 0);
+    GPIOPinWrite(GPIO_PORTB_BASE, 0xf0, symbol);
+    toggleE();
+    delay100us();
+    GPIOPinWrite(GPIO_PORTB_BASE, 0xf0, lowerFourBits);
+    toggleE();
+    delay100us();
+}
+/*
+void printChar(char symbol){
+    uint8_t lowerFourBits = (symbol << 4) & 0x0f;
+    symbol &= 0xf0;
+
+    GPIOPinWrite(GPIO_PORTD_BASE, LCD_RS_PIN, LCD_RS_PIN);
+    GPIOPinWrite(GPIO_PORTD_BASE, LCD_RW_PIN, 0);
     GPIOPinWrite(GPIO_PORTB_BASE, 0xff, symbol);
     toggleE();
     smallDelay();
 }
+*/
 
 void printMsg(char * msg){
     int i, j;
@@ -189,20 +285,18 @@ void printMsg(char * msg){
 
 
 void toggleE(void){
-    GPIOPinWrite(GPIO_PORTD_BASE, GPIO_PIN_2, GPIO_PIN_2);
+    GPIOPinWrite(GPIO_PORTD_BASE, LCD_E_PIN, LCD_E_PIN);
 
-    smallDelay();
+    delay100us();
 
-    GPIOPinWrite(GPIO_PORTD_BASE, GPIO_PIN_2, 0);
+    GPIOPinWrite(GPIO_PORTD_BASE, LCD_E_PIN, 0);
 }
 
-void smallDelay(void){
+void delay100us(void){
 
     volatile uint32_t ui32Loop;
 
-    for(ui32Loop = 0; ui32Loop < 20000; ui32Loop++)
-    {
-    }
+    for(ui32Loop = 0; ui32Loop < 420; ui32Loop++);
 }
 
 
