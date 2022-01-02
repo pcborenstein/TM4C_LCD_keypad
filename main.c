@@ -13,7 +13,6 @@
 void screenCommand(uint8_t cmd);
 void toggleE(void);
 void delay100us(void);
-uint8_t pollKeypad(void);
 void printKey(uint8_t key);
 void printChar(char symbol);
 void myTimerISR(void);
@@ -113,51 +112,47 @@ int main(void)
     printMsg("CURRENT: 01Hz");
     //move to input
     screenCommand(0x80 | 0x10);
-    uint8_t keyPress = 0;
-    uint8_t keyPressOld = 0;
     uint16_t frq = 0;
     uint8_t digit = 1;
     char keyChar;
     char keyStr[4];
+
+    enableKeyDetection();
+
     while(1){
-        keyPress = pollKeypad();
-        //make sure we get a real value
-        if(keyPress > KEY_PAD_BUTTONS)
+        if(keyPress == INVALID_KEY){
             continue;
-        if(keyPress != keyPressOld){
-            keyPressOld = keyPress;
-            //only print digits
-            if(keyPress != 0){
-                keyChar = keyToCharArray[keyPress-1];
-                if((keyChar >= '0') && (keyChar <= '9')){
-                    if(digit == 2)
-                        frq += (keyChar - '0');
-                    if(digit == 1)
-                        frq += 10 * (keyChar - '0');
-                    keyStr[digit - 1] = keyChar;
-                    printChar(keyChar);
-                    digit++;
-                    if(digit > 2){
-                        setFrequency(frq);
-                        screenCommand(0x80 | 0x49);
-                        printMsg(keyStr);
-                        //move to input
-                        screenCommand(0x80 | 0x10);
-                        printMsg("__");
-                        screenCommand(0x80 | 0x10);
-                        digit = 1;
-                        frq = 0;
-                    }
+        }
+        //make sure we get a real value
+        if(keyPress > KEY_PAD_BUTTONS){
+            continue;
+        }
+        //only print digits
+        if(keyPress != 0){
+            keyChar = keyToCharArray[keyPress-1];
+            if((keyChar >= '0') && (keyChar <= '9')){
+                if(digit == 2)
+                    frq += (keyChar - '0');
+                if(digit == 1)
+                    frq += 10 * (keyChar - '0');
+                keyStr[digit - 1] = keyChar;
+                printChar(keyChar);
+                digit++;
+                if(digit > 2){
+                    setFrequency(frq);
+                    screenCommand(0x80 | 0x49);
+                    printMsg(keyStr);
+                    //move to input
+                    screenCommand(0x80 | 0x10);
+                    printMsg("__");
+                    screenCommand(0x80 | 0x10);
+                    digit = 1;
+                    frq = 0;
                 }
             }
-            //wait 10ms
-            for(wait = 0; wait< 100; wait++){
-                delay100us();
-            }
         }
+        keyPress = INVALID_KEY;
     }
-
-	return 0;
 }
 
 void screenCommand(uint8_t cmd){
@@ -292,12 +287,6 @@ void toggleE(void){
     GPIOPinWrite(GPIO_PORTD_BASE, LCD_E_PIN, 0);
 }
 
-void delay100us(void){
-
-    volatile uint32_t ui32Loop;
-
-    for(ui32Loop = 0; ui32Loop < 420; ui32Loop++);
-}
 
 
 void setFrequency(uint16_t frq){

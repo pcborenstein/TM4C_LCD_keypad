@@ -17,12 +17,15 @@ char keyToCharArray[KEY_PAD_BUTTONS] = {'1', '4', '7', '*', '2', '5', '8', '0', 
 
 #if KEYPAD_12 == TRUE
 #define KEY_PAD_BUTTONS 12
-char keyToCharArray[KEY_PAD_BUTTONS] = {'1', '4', '7', '*', '2', '5', '8', '0', '3', '6', '9', '#'};
+#define INVALID_KEY     KEY_PAD_BUTTONS
+extern char keyToCharArray[KEY_PAD_BUTTONS];
 #endif
 
+extern uint8_t keyPress;
 
-uint8_t pollKeypad(void);
 void keypadInit(void);
+void enableKeyDetection(void);
+void delay100us(void);
 
 
 #endif /* KEYPAD_H_ */
